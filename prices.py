@@ -7,11 +7,6 @@ import bs4 as bs
 import pickle
 import requests
 
-# Set proxies
-proxies = {
-  "http": "http://10.10.1.10:3128",
-  "https": "http://10.10.1.10:1080",
-}
 
 # Find companies within the S&P500
 html = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
