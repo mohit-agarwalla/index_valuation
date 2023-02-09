@@ -14,41 +14,42 @@ import seaborn as sns
 import yfinance as yf
 import bs4 as bs
 import requests
+from datetime import datetime
 
-
-# Find companies within the S&P500
+# Find info about individual stocks within the S&P500
 html = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
 soup = bs.BeautifulSoup(html.text, 'lxml')
 table = soup.find('table', {'class': 'wikitable sortable'})
 tickers = []
 sectors = []
+names = []
 for row in table.findAll('tr')[1:]:
-    ticker = row.findAll('td')[0].text # Ticker symbol
+    ticker = row.findAll('td')[0].text.replace('.', '-') # Ticker symbol
+    name = row.findAll('td')[1].text # Company Name
     sector = row.findAll('td')[2].text # GICS Sector Name
     ticker = ticker[:-1]
     tickers.append(ticker)
+    names.append(name)
     sectors.append(sector)
 
-df = pd.DataFrame({'tickers': tickers, 'sectors': sectors},).set_index('tickers')
+# Create dataframe with basic info
+df = pd.DataFrame({'tickers': tickers, 'name': names, 
+                   'sectors': sectors},).set_index('tickers')
+
+# Columns for yearly dividends
 dividends = [0 for i in tickers]
 for year in range(2010,2023):
-    df[f'DIV{year}'] = dividends
-sectors = np.unique(sectors)
-print(sectors)
+    df[f'DIV{year}'] = dividends # Assign 0s and populate below
 tickers = [ticker.replace('.','-') for ticker in tickers] # yfinance uses - instead of .
-snp = yf.Ticker("^GSPC")
-prices = []
-weightings = []
+dt_format = "%Y-%m-%d"
 for ticker in tickers:
     dividends = yf.Ticker(f"{ticker}").dividends
-    dividends = dividends[dividends.index > "2000-01-01"]
-    df[ticker] = dividends.sum()
+    new_index = dividends.index.strftime('%Y-%m-%d %H:%M:%S')
+    dividends.index = pd.to_datetime(new_index, format=dt_format)
+    for year in range(2010,2023):
+        dividend = dividends.loc[dividends.index > datetime.strptime(f"{year}-01-01", dt_format)]
+        dividend = dividend.sum()
+        df[f'DIV{year}'][ticker] = dividend
+        
     
-    
-print(df)
-    
-
-# print(prices)
-
-dividends = snp.info
-print(dividends)
+df.to_csv("data/dividend_yields.csv")
